@@ -1,7 +1,7 @@
 use clap::Parser;
 
 #[derive(Parser)]
-#[command(name = "skillscli")]
+#[command(name = "skills")]
 #[command(about = "A Rust CLI application", long_about = None)]
 struct Cli {
     #[arg(short, long)]
@@ -15,7 +15,7 @@ fn main() -> anyhow::Result<()> {
         println!("Verbose mode enabled");
     }
 
-    println!("Welcome to skillscli!");
+    println!("Welcome to skills!");
 
     Ok(())
 }
