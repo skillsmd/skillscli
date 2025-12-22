@@ -7,12 +7,14 @@ use walkdir::WalkDir;
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum TargetType {
     Codex,
+    Copilot,
 }
 
 impl TargetType {
     fn as_str(&self) -> &'static str {
         match self {
             TargetType::Codex => "codex",
+            TargetType::Copilot => "copilot",
         }
     }
 }
