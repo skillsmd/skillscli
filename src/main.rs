@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, anyhow};
 use clap::{Parser, Subcommand, ValueEnum};
+use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -39,6 +40,10 @@ enum Commands {
         #[arg(short = 'g', long = "global", help = "Install globally to ~/.{type}/skills instead of ./.{type}/skills")]
         github: bool,
     },
+    Search {
+        #[arg(help = "Search query to filter skills")]
+        query: String,
+    },
 }
 
 #[derive(Debug)]
@@ -46,6 +51,14 @@ struct GitHubRepo {
     owner: String,
     repo: String,
     branch: String,
+    path: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubContent {
+    name: String,
+    #[serde(rename = "type")]
+    item_type: String,
     path: String,
 }
 
@@ -188,6 +201,49 @@ fn extract_skill_name(path: &str) -> Result<String> {
     Ok(name.to_string())
 }
 
+fn search_skills(query: &str) -> Result<()> {
+    let api_url = "https://api.github.com/repos/anthropics/skills/contents/skills";
+
+    println!("Searching for skills matching '{}'...\n", query);
+
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("skills-cli")
+        .build()?;
+
+    let response = client.get(api_url)
+        .send()
+        .context("Failed to fetch skills from GitHub")?;
+
+    if !response.status().is_success() {
+        return Err(anyhow!("Failed to fetch skills: HTTP {}", response.status()));
+    }
+
+    let contents: Vec<GitHubContent> = response.json()
+        .context("Failed to parse GitHub API response")?;
+
+    let query_lower = query.to_lowercase();
+    let mut found_skills = Vec::new();
+
+    for item in contents {
+        if item.item_type == "dir" && item.name.to_lowercase().contains(&query_lower) {
+            found_skills.push(item);
+        }
+    }
+
+    if found_skills.is_empty() {
+        println!("No skills found matching '{}'", query);
+    } else {
+        println!("Found {} skill(s):\n", found_skills.len());
+        for skill in found_skills {
+            println!("  • {} ", skill.name);
+            println!("    URL: https://github.com/anthropics/skills/tree/main/{}", skill.path);
+            println!();
+        }
+    }
+
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -200,6 +256,9 @@ fn main() -> Result<()> {
             let target_dir = get_target_directory(target, github)?;
 
             download_and_extract_github_folder(&repo, &target_dir, &skill_name)?;
+        }
+        Commands::Search { query } => {
+            search_skills(&query)?;
         }
     }
 
