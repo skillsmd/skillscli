@@ -40,6 +40,10 @@ enum Commands {
         #[arg(short = 'g', long = "global", help = "Install globally to ~/.{type}/skills instead of ./.{type}/skills")]
         github: bool,
     },
+    Search {
+        #[arg(help = "Search query to filter skills")]
+        query: String,
+    },
     Market {
         #[command(subcommand)]
         action: MarketAction,
@@ -285,9 +289,9 @@ fn add_market(url: &str) -> Result<()> {
     Ok(())
 }
 
-fn get_market_repositories() -> Result<Vec<(String, String, String)>> {
+fn get_market_repositories() -> Result<Vec<(String, String, String, String)>> {
     let mut repositories = vec![
-        ("anthropics/skills".to_string(), "skills".to_string(), "https://github.com/anthropics/skills/tree/main".to_string()),
+        ("anthropics/skills".to_string(), "skills".to_string(), "https://github.com/anthropics/skills/tree/main".to_string(), "anthropics/skills".to_string()),
     ];
 
     // Load custom markets from config
@@ -299,12 +303,12 @@ fn get_market_repositories() -> Result<Vec<(String, String, String)>> {
 
         // Check if this repository is already in the list (deduplicate)
         let repo_key = format!("{}/{}", repo_path, parsed.path);
-        let is_duplicate = repositories.iter().any(|(r, p, _)| {
+        let is_duplicate = repositories.iter().any(|(r, p, _, _)| {
             format!("{}/{}", r, p) == repo_key
         });
 
         if !is_duplicate {
-            repositories.push((repo_path, parsed.path, base_url));
+            repositories.push((repo_path, parsed.path, base_url, market.name.clone()));
         }
     }
 
@@ -323,7 +327,7 @@ fn search_skills(query: &str) -> Result<()> {
     let query_lower = query.to_lowercase();
     let mut all_found_skills = Vec::new();
 
-    for (repo, path, base_url) in repositories {
+    for (repo, path, base_url, market_name) in repositories {
         let api_url = format!("https://api.github.com/repos/{}/contents/{}", repo, path);
 
         let response = client.get(&api_url)
@@ -345,7 +349,7 @@ fn search_skills(query: &str) -> Result<()> {
 
         for item in contents {
             if item.item_type == "dir" && item.name.to_lowercase().contains(&query_lower) {
-                all_found_skills.push((item, base_url.clone()));
+                all_found_skills.push((item, base_url.clone(), market_name.clone()));
             }
         }
     }
@@ -354,8 +358,8 @@ fn search_skills(query: &str) -> Result<()> {
         println!("No skills found matching '{}'", query);
     } else {
         println!("Found {} skill(s):\n", all_found_skills.len());
-        for (skill, base_url) in all_found_skills {
-            println!("  • {} ", skill.name);
+        for (skill, base_url, market_name) in all_found_skills {
+            println!("  • {} ({})", skill.name, market_name);
             println!("    URL: {}/{}", base_url, skill.path);
             println!();
         }
@@ -377,12 +381,17 @@ fn main() -> Result<()> {
 
             download_and_extract_github_folder(&repo, &target_dir, &skill_name)?;
         }
+        Commands::Search { query } => {
+            search_skills(&query)?;
+        }
         Commands::Market { action } => {
             match action {
                 MarketAction::Add { url } => {
                     add_market(&url)?;
                 }
-            
+                MarketAction::Search { query } => {
+                    search_skills(&query)?;
+                }
             }
         }
     }
