@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, anyhow};
 use clap::{Parser, Subcommand, ValueEnum};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -40,6 +40,18 @@ enum Commands {
         #[arg(short = 'g', long = "global", help = "Install globally to ~/.{type}/skills instead of ./.{type}/skills")]
         github: bool,
     },
+    Market {
+        #[command(subcommand)]
+        action: MarketAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum MarketAction {
+    Add {
+        #[arg(help = "GitHub repository URL (e.g., https://github.com/owner/repo/tree/branch/path)")]
+        url: String,
+    },
     Search {
         #[arg(help = "Search query to filter skills")]
         query: String,
@@ -60,6 +72,12 @@ struct GitHubContent {
     #[serde(rename = "type")]
     item_type: String,
     path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct MarketEntry {
+    name: String,
+    url: String,
 }
 
 fn parse_github_url(url: &str) -> Result<GitHubRepo> {
@@ -201,8 +219,100 @@ fn extract_skill_name(path: &str) -> Result<String> {
     Ok(name.to_string())
 }
 
+fn get_market_config_path() -> Result<PathBuf> {
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| anyhow!("Could not determine home directory"))?;
+    Ok(home_dir.join(".skills").join("market.json"))
+}
+
+fn load_markets() -> Result<Vec<MarketEntry>> {
+    let config_path = get_market_config_path()?;
+
+    if !config_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let content = fs::read_to_string(&config_path)
+        .context("Failed to read market.json")?;
+
+    let markets: Vec<MarketEntry> = serde_json::from_str(&content)
+        .context("Failed to parse market.json")?;
+
+    Ok(markets)
+}
+
+fn save_markets(markets: &[MarketEntry]) -> Result<()> {
+    let config_path = get_market_config_path()?;
+
+    if let Some(parent) = config_path.parent() {
+        fs::create_dir_all(parent)
+            .context("Failed to create .skills directory")?;
+    }
+
+    let json = serde_json::to_string_pretty(markets)
+        .context("Failed to serialize markets")?;
+
+    fs::write(&config_path, json)
+        .context("Failed to write market.json")?;
+
+    Ok(())
+}
+
+fn extract_repo_name_from_url(url: &str) -> Result<String> {
+    let parsed = parse_github_url(url)?;
+    Ok(format!("{}/{}", parsed.owner, parsed.repo))
+}
+
+fn add_market(url: &str) -> Result<()> {
+    let mut markets = load_markets()?;
+
+    let name = extract_repo_name_from_url(url)?;
+
+    // Check if market already exists
+    if markets.iter().any(|m| m.url == url) {
+        println!("Market '{}' is already added", name);
+        return Ok(());
+    }
+
+    markets.push(MarketEntry {
+        name,
+        url: url.to_string(),
+    });
+
+    save_markets(&markets)?;
+
+    println!("Successfully added market: {}", url);
+    Ok(())
+}
+
+fn get_market_repositories() -> Result<Vec<(String, String, String)>> {
+    let mut repositories = vec![
+        ("anthropics/skills".to_string(), "skills".to_string(), "https://github.com/anthropics/skills/tree/main".to_string()),
+    ];
+
+    // Load custom markets from config
+    let markets = load_markets()?;
+    for market in markets {
+        let parsed = parse_github_url(&market.url)?;
+        let repo_path = format!("{}/{}", parsed.owner, parsed.repo);
+        let base_url = format!("https://github.com/{}/tree/{}", repo_path, parsed.branch);
+
+        // Check if this repository is already in the list (deduplicate)
+        let repo_key = format!("{}/{}", repo_path, parsed.path);
+        let is_duplicate = repositories.iter().any(|(r, p, _)| {
+            format!("{}/{}", r, p) == repo_key
+        });
+
+        if !is_duplicate {
+            repositories.push((repo_path, parsed.path, base_url));
+        }
+    }
+
+    Ok(repositories)
+}
+
 fn search_skills(query: &str) -> Result<()> {
-    let api_url = "https://api.github.com/repos/anthropics/skills/contents/skills";
+    let repositories = get_market_repositories()?;
 
     println!("Searching for skills matching '{}'...\n", query);
 
@@ -210,33 +320,43 @@ fn search_skills(query: &str) -> Result<()> {
         .user_agent("skills-cli")
         .build()?;
 
-    let response = client.get(api_url)
-        .send()
-        .context("Failed to fetch skills from GitHub")?;
-
-    if !response.status().is_success() {
-        return Err(anyhow!("Failed to fetch skills: HTTP {}", response.status()));
-    }
-
-    let contents: Vec<GitHubContent> = response.json()
-        .context("Failed to parse GitHub API response")?;
-
     let query_lower = query.to_lowercase();
-    let mut found_skills = Vec::new();
+    let mut all_found_skills = Vec::new();
 
-    for item in contents {
-        if item.item_type == "dir" && item.name.to_lowercase().contains(&query_lower) {
-            found_skills.push(item);
+    for (repo, path, base_url) in repositories {
+        let api_url = format!("https://api.github.com/repos/{}/contents/{}", repo, path);
+
+        let response = client.get(&api_url)
+            .send()
+            .context(format!("Failed to fetch skills from {}", repo))?;
+
+        if !response.status().is_success() {
+            eprintln!("Warning: Failed to fetch from {}: HTTP {}", repo, response.status());
+            continue;
+        }
+
+        let contents: Vec<GitHubContent> = match response.json() {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("Warning: Failed to parse response from {}: {}", repo, e);
+                continue;
+            }
+        };
+
+        for item in contents {
+            if item.item_type == "dir" && item.name.to_lowercase().contains(&query_lower) {
+                all_found_skills.push((item, base_url.clone()));
+            }
         }
     }
 
-    if found_skills.is_empty() {
+    if all_found_skills.is_empty() {
         println!("No skills found matching '{}'", query);
     } else {
-        println!("Found {} skill(s):\n", found_skills.len());
-        for skill in found_skills {
+        println!("Found {} skill(s):\n", all_found_skills.len());
+        for (skill, base_url) in all_found_skills {
             println!("  • {} ", skill.name);
-            println!("    URL: https://github.com/anthropics/skills/tree/main/{}", skill.path);
+            println!("    URL: {}/{}", base_url, skill.path);
             println!();
         }
     }
@@ -257,8 +377,15 @@ fn main() -> Result<()> {
 
             download_and_extract_github_folder(&repo, &target_dir, &skill_name)?;
         }
-        Commands::Search { query } => {
-            search_skills(&query)?;
+        Commands::Market { action } => {
+            match action {
+                MarketAction::Add { url } => {
+                    add_market(&url)?;
+                }
+                MarketAction::Search { query } => {
+                    search_skills(&query)?;
+                }
+            }
         }
     }
 
