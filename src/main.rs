@@ -382,9 +382,7 @@ fn main() -> Result<()> {
                 MarketAction::Add { url } => {
                     add_market(&url)?;
                 }
-                MarketAction::Search { query } => {
-                    search_skills(&query)?;
-                }
+            
             }
         }
     }
