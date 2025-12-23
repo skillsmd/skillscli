@@ -184,7 +184,7 @@ pub fn extract_skill_name(path: &str) -> Result<String> {
     let path = path.trim_end_matches('/');
     let name = path
         .split('/')
-        .last()
+        .next_back()
         .ok_or_else(|| anyhow!("Could not extract skill name from path"))?;
     Ok(name.to_string())
 }
