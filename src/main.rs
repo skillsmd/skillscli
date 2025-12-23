@@ -18,6 +18,7 @@ use skill_finder::{ConsoleUserInteraction, SkillFinder};
 pub enum TargetType {
     Codex,
     Copilot,
+    Claude,
 }
 
 impl Target for TargetType {
@@ -25,6 +26,7 @@ impl Target for TargetType {
         match self {
             TargetType::Codex => "codex",
             TargetType::Copilot => "copilot",
+            TargetType::Claude => "claude",
         }
     }
 }
