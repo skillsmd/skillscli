@@ -1,10 +1,10 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use std::path::PathBuf;
 
-use crate::github::{extract_skill_name, GitHubDownloader, GitHubUrlParser};
+use crate::github::{GitHubDownloader, GitHubUrlParser, extract_skill_name};
+use crate::market::{GitHubApiClient, MarketStorage};
 use crate::models::SkillMatch;
 use crate::skill_finder::{SkillFinder, UserInteraction};
-use crate::market::{GitHubApiClient, MarketStorage};
 
 /// Trait for target type abstraction
 pub trait Target {
@@ -25,12 +25,7 @@ impl<D: GitHubDownloader, P: GitHubUrlParser> SkillInstaller<D, P> {
         }
     }
 
-    pub fn install_from_url<T: Target>(
-        &self,
-        url: &str,
-        target: &T,
-        global: bool,
-    ) -> Result<()> {
+    pub fn install_from_url<T: Target>(&self, url: &str, target: &T, global: bool) -> Result<()> {
         let repo = self
             .url_parser
             .parse(url)

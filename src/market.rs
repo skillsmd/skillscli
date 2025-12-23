@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use std::fs;
 use std::path::PathBuf;
 
@@ -23,8 +23,8 @@ pub struct FileMarketStorage {
 
 impl FileMarketStorage {
     pub fn new() -> Result<Self> {
-        let home_dir = dirs::home_dir()
-            .ok_or_else(|| anyhow!("Could not determine home directory"))?;
+        let home_dir =
+            dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
         let config_path = home_dir.join(".skills").join("market.json");
         Ok(Self { config_path })
     }
@@ -36,26 +36,23 @@ impl MarketStorage for FileMarketStorage {
             return Ok(Vec::new());
         }
 
-        let content = fs::read_to_string(&self.config_path)
-            .context("Failed to read market.json")?;
+        let content =
+            fs::read_to_string(&self.config_path).context("Failed to read market.json")?;
 
-        let markets: Vec<MarketEntry> = serde_json::from_str(&content)
-            .context("Failed to parse market.json")?;
+        let markets: Vec<MarketEntry> =
+            serde_json::from_str(&content).context("Failed to parse market.json")?;
 
         Ok(markets)
     }
 
     fn save(&self, markets: &[MarketEntry]) -> Result<()> {
         if let Some(parent) = self.config_path.parent() {
-            fs::create_dir_all(parent)
-                .context("Failed to create .skills directory")?;
+            fs::create_dir_all(parent).context("Failed to create .skills directory")?;
         }
 
-        let json = serde_json::to_string_pretty(markets)
-            .context("Failed to serialize markets")?;
+        let json = serde_json::to_string_pretty(markets).context("Failed to serialize markets")?;
 
-        fs::write(&self.config_path, json)
-            .context("Failed to write market.json")?;
+        fs::write(&self.config_path, json).context("Failed to write market.json")?;
 
         Ok(())
     }
@@ -105,7 +102,10 @@ pub struct MarketService<S: MarketStorage, U: GitHubUrlParser> {
 
 impl<S: MarketStorage, U: GitHubUrlParser> MarketService<S, U> {
     pub fn new(storage: S, url_parser: U) -> Self {
-        Self { storage, url_parser }
+        Self {
+            storage,
+            url_parser,
+        }
     }
 
     pub fn add_market(&self, url: &str) -> Result<()> {
@@ -141,10 +141,7 @@ impl<S: MarketStorage, U: GitHubUrlParser> MarketService<S, U> {
         for market in markets {
             let parsed = self.url_parser.parse(&market.url)?;
             let repo_path = format!("{}/{}", parsed.owner, parsed.repo);
-            let base_url = format!(
-                "https://github.com/{}/tree/{}",
-                repo_path, parsed.branch
-            );
+            let base_url = format!("https://github.com/{}/tree/{}", repo_path, parsed.branch);
 
             let repo_key = format!("{}/{}", repo_path, parsed.path);
             let is_duplicate = repositories

@@ -44,10 +44,19 @@ enum Commands {
         #[arg(help = "Skill name or GitHub repository URL")]
         skill_or_url: String,
 
-        #[arg(short = 't', long = "type", value_enum, help = "Target type for installation")]
+        #[arg(
+            short = 't',
+            long = "type",
+            value_enum,
+            help = "Target type for installation"
+        )]
         target: TargetType,
 
-        #[arg(short = 'g', long = "global", help = "Install globally to ~/.{type}/skills instead of ./.{type}/skills")]
+        #[arg(
+            short = 'g',
+            long = "global",
+            help = "Install globally to ~/.{type}/skills instead of ./.{type}/skills"
+        )]
         global: bool,
     },
     Search {
@@ -63,7 +72,9 @@ enum Commands {
 #[derive(Subcommand)]
 enum MarketAction {
     Add {
-        #[arg(help = "GitHub repository URL (e.g., https://github.com/owner/repo/tree/branch/path)")]
+        #[arg(
+            help = "GitHub repository URL (e.g., https://github.com/owner/repo/tree/branch/path)"
+        )]
         url: String,
     },
     Search {

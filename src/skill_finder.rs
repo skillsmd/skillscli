@@ -1,8 +1,8 @@
 use anyhow::Result;
 use std::io::{self, Write};
 
-use crate::market::{GitHubApiClient, MarketService, MarketStorage};
 use crate::github::GitHubUrlParser;
+use crate::market::{GitHubApiClient, MarketService, MarketStorage};
 use crate::models::{GitHubContent, SkillMatch};
 
 /// Service for finding and searching skills
@@ -78,11 +78,7 @@ impl<S: MarketStorage, U: GitHubUrlParser, A: GitHubApiClient> SkillFinder<S, U,
         Ok(())
     }
 
-    fn display_search_results(
-        &self,
-        results: &[(GitHubContent, String, String)],
-        query: &str,
-    ) {
+    fn display_search_results(&self, results: &[(GitHubContent, String, String)], query: &str) {
         if results.is_empty() {
             println!("No skills found matching '{}'", query);
         } else {

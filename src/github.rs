@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
@@ -13,7 +13,8 @@ pub trait GitHubUrlParser {
 
 /// Trait for downloading content from GitHub
 pub trait GitHubDownloader {
-    fn download_folder(&self, repo: &GitHubRepo, target_dir: &Path, skill_name: &str) -> Result<()>;
+    fn download_folder(&self, repo: &GitHubRepo, target_dir: &Path, skill_name: &str)
+    -> Result<()>;
 }
 
 /// Trait for file system operations
@@ -120,7 +121,12 @@ impl<F: FileSystem> DefaultGitHubDownloader<F> {
 }
 
 impl<F: FileSystem> GitHubDownloader for DefaultGitHubDownloader<F> {
-    fn download_folder(&self, repo: &GitHubRepo, target_dir: &Path, skill_name: &str) -> Result<()> {
+    fn download_folder(
+        &self,
+        repo: &GitHubRepo,
+        target_dir: &Path,
+        skill_name: &str,
+    ) -> Result<()> {
         let zip_url = format!(
             "https://github.com/{}/{}/archive/refs/heads/{}.zip",
             repo.owner, repo.repo, repo.branch
@@ -128,8 +134,7 @@ impl<F: FileSystem> GitHubDownloader for DefaultGitHubDownloader<F> {
 
         println!("Downloading from GitHub: {}", zip_url);
 
-        let response = reqwest::blocking::get(&zip_url)
-            .context("Failed to download repository")?;
+        let response = reqwest::blocking::get(&zip_url).context("Failed to download repository")?;
 
         if !response.status().is_success() {
             return Err(anyhow!("Failed to download: HTTP {}", response.status()));
