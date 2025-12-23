@@ -74,39 +74,39 @@ jobs:
           cd homebrew-skills/Formula
 
           # Create the updated formula
-          cat > skills.rb << 'EOF'
-class Skills < Formula
-  desc "A CLI for managing skills for AI coding assistants"
-  homepage "https://github.com/skillsmd/skillscli"
-  version "VERSION_PLACEHOLDER"
+          cat > skills.rb <<'FORMULA_EOF'
+          class Skills < Formula
+            desc "A CLI for managing skills for AI coding assistants"
+            homepage "https://github.com/skillsmd/skillscli"
+            version "VERSION_PLACEHOLDER"
 
-  on_macos do
-    if Hardware::CPU.arm?
-      url "https://github.com/skillsmd/skillscli/releases/download/vVERSION_PLACEHOLDER/skills-macos-aarch64.tar.gz"
-      sha256 "SHA_MACOS_ARM64_PLACEHOLDER"
-    else
-      url "https://github.com/skillsmd/skillscli/releases/download/vVERSION_PLACEHOLDER/skills-macos-x86_64.tar.gz"
-      sha256 "SHA_MACOS_X86_64_PLACEHOLDER"
-    end
-  end
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/skillsmd/skillscli/releases/download/vVERSION_PLACEHOLDER/skills-macos-aarch64.tar.gz"
+                sha256 "SHA_MACOS_ARM64_PLACEHOLDER"
+              else
+                url "https://github.com/skillsmd/skillscli/releases/download/vVERSION_PLACEHOLDER/skills-macos-x86_64.tar.gz"
+                sha256 "SHA_MACOS_X86_64_PLACEHOLDER"
+              end
+            end
 
-  on_linux do
-    if Hardware::CPU.intel?
-      url "https://github.com/skillsmd/skillscli/releases/download/vVERSION_PLACEHOLDER/skills-linux-x86_64.tar.gz"
-      sha256 "SHA_LINUX_X86_64_PLACEHOLDER"
-    end
-  end
+            on_linux do
+              if Hardware::CPU.intel?
+                url "https://github.com/skillsmd/skillscli/releases/download/vVERSION_PLACEHOLDER/skills-linux-x86_64.tar.gz"
+                sha256 "SHA_LINUX_X86_64_PLACEHOLDER"
+              end
+            end
 
-  def install
-    bin.install "skills"
-  end
+            def install
+              bin.install "skills"
+            end
 
-  test do
-    system "#{bin}/skills", "--version"
-    system "#{bin}/skills", "--help"
-  end
-end
-EOF
+            test do
+              system "#{bin}/skills", "--version"
+              system "#{bin}/skills", "--help"
+            end
+          end
+          FORMULA_EOF
 
           # Replace placeholders
           sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" skills.rb
