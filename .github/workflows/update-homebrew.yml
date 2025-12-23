@@ -1,0 +1,136 @@
+name: Update Homebrew Formula
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to update (e.g., 0.1.2)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  update-formula:
+    name: Update Homebrew Formula
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download release assets
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          BASE_URL="https://github.com/skillsmd/skillscli/releases/download/v${VERSION}"
+
+          # Download macOS ARM64
+          curl -L "${BASE_URL}/skills-macos-aarch64.tar.gz" -o skills-macos-aarch64.tar.gz
+
+          # Download macOS x86_64
+          curl -L "${BASE_URL}/skills-macos-x86_64.tar.gz" -o skills-macos-x86_64.tar.gz
+
+          # Download Linux x86_64
+          curl -L "${BASE_URL}/skills-linux-x86_64.tar.gz" -o skills-linux-x86_64.tar.gz
+
+      - name: Calculate checksums
+        id: checksums
+        run: |
+          SHA_MACOS_ARM64=$(sha256sum skills-macos-aarch64.tar.gz | cut -d' ' -f1)
+          SHA_MACOS_X86_64=$(sha256sum skills-macos-x86_64.tar.gz | cut -d' ' -f1)
+          SHA_LINUX_X86_64=$(sha256sum skills-linux-x86_64.tar.gz | cut -d' ' -f1)
+
+          echo "macos_arm64=${SHA_MACOS_ARM64}" >> $GITHUB_OUTPUT
+          echo "macos_x86_64=${SHA_MACOS_X86_64}" >> $GITHUB_OUTPUT
+          echo "linux_x86_64=${SHA_LINUX_X86_64}" >> $GITHUB_OUTPUT
+
+          echo "Checksums calculated:"
+          echo "macOS ARM64:  ${SHA_MACOS_ARM64}"
+          echo "macOS x86_64: ${SHA_MACOS_X86_64}"
+          echo "Linux x86_64: ${SHA_LINUX_X86_64}"
+
+      - name: Checkout homebrew-skills repository
+        uses: actions/checkout@v4
+        with:
+          repository: skillsmd/homebrew-skills
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-skills
+
+      - name: Update formula
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          SHA_MACOS_ARM64="${{ steps.checksums.outputs.macos_arm64 }}"
+          SHA_MACOS_X86_64="${{ steps.checksums.outputs.macos_x86_64 }}"
+          SHA_LINUX_X86_64="${{ steps.checksums.outputs.linux_x86_64 }}"
+
+          cd homebrew-skills/Formula
+
+          # Create the updated formula
+          cat > skills.rb << 'EOF'
+class Skills < Formula
+  desc "A CLI for managing skills for AI coding assistants"
+  homepage "https://github.com/skillsmd/skillscli"
+  version "VERSION_PLACEHOLDER"
+
+  on_macos do
+    if Hardware::CPU.arm?
+      url "https://github.com/skillsmd/skillscli/releases/download/vVERSION_PLACEHOLDER/skills-macos-aarch64.tar.gz"
+      sha256 "SHA_MACOS_ARM64_PLACEHOLDER"
+    else
+      url "https://github.com/skillsmd/skillscli/releases/download/vVERSION_PLACEHOLDER/skills-macos-x86_64.tar.gz"
+      sha256 "SHA_MACOS_X86_64_PLACEHOLDER"
+    end
+  end
+
+  on_linux do
+    if Hardware::CPU.intel?
+      url "https://github.com/skillsmd/skillscli/releases/download/vVERSION_PLACEHOLDER/skills-linux-x86_64.tar.gz"
+      sha256 "SHA_LINUX_X86_64_PLACEHOLDER"
+    end
+  end
+
+  def install
+    bin.install "skills"
+  end
+
+  test do
+    system "#{bin}/skills", "--version"
+    system "#{bin}/skills", "--help"
+  end
+end
+EOF
+
+          # Replace placeholders
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" skills.rb
+          sed -i "s/SHA_MACOS_ARM64_PLACEHOLDER/${SHA_MACOS_ARM64}/g" skills.rb
+          sed -i "s/SHA_MACOS_X86_64_PLACEHOLDER/${SHA_MACOS_X86_64}/g" skills.rb
+          sed -i "s/SHA_LINUX_X86_64_PLACEHOLDER/${SHA_LINUX_X86_64}/g" skills.rb
+
+          cat skills.rb
+
+      - name: Commit and push changes
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          cd homebrew-skills
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add Formula/skills.rb
+          git commit -m "chore: update skills to v${VERSION}
+
+          - Update version to ${VERSION}
+          - Update checksums for all platforms
+          - macOS ARM64: ${{ steps.checksums.outputs.macos_arm64 }}
+          - macOS x86_64: ${{ steps.checksums.outputs.macos_x86_64 }}
+          - Linux x86_64: ${{ steps.checksums.outputs.linux_x86_64 }}"
+
+          git push
