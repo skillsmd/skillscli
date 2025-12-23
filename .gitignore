@@ -1,1 +1,25 @@
+# Rust
 /target
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+.codex/
+.copilot/
+.skills/
+
+# Release
+*.tar.gz
+*.zip

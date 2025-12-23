@@ -1,0 +1,49 @@
+name: Test Release
+
+# This workflow is for testing the release process without creating a real release
+on:
+  workflow_dispatch:
+
+jobs:
+  test-build:
+    name: Test Build
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+
+      - name: Build release
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --target ${{ matrix.target }}
+
+      - name: Test binary (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          ./target/${{ matrix.target }}/release/skills --help
+          ./target/${{ matrix.target }}/release/skills --version
+
+      - name: Test binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          .\target\${{ matrix.target }}\release\skills.exe --help
+          .\target\${{ matrix.target }}\release\skills.exe --version

@@ -23,6 +23,7 @@ impl TargetType {
 
 #[derive(Parser)]
 #[command(name = "skills")]
+#[command(version)]
 #[command(about = "A CLI for managing skills", long_about = None)]
 struct Cli {
     #[command(subcommand)]
