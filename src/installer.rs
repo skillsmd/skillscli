@@ -107,7 +107,11 @@ fn get_target_directory<T: Target>(target: &T, global: bool) -> Result<PathBuf> 
         std::env::current_dir().context("Failed to get current directory")?
     };
 
-    Ok(base_dir
-        .join(format!(".{}", target.as_str()))
-        .join("skills"))
+    let folder_name = if target.as_str() == "copilot" {
+        ".github".to_string()
+    } else {
+        format!(".{}", target.as_str())
+    };
+
+    Ok(base_dir.join(folder_name).join("skills"))
 }
