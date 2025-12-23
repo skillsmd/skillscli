@@ -2,6 +2,7 @@ use anyhow::{Context, Result, anyhow};
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -31,14 +32,14 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Install {
+        #[arg(help = "Skill name or GitHub repository URL")]
+        skill_or_url: String,
+
         #[arg(short = 't', long = "type", value_enum, help = "Target type for installation")]
         target: TargetType,
 
-        #[arg(short = 'p', long = "path", help = "GitHub repository URL (e.g., https://github.com/owner/repo/tree/branch/path)")]
-        path: String,
-
         #[arg(short = 'g', long = "global", help = "Install globally to ~/.{type}/skills instead of ./.{type}/skills")]
-        github: bool,
+        global: bool,
     },
     Search {
         #[arg(help = "Search query to filter skills")]
@@ -82,6 +83,13 @@ struct GitHubContent {
 struct MarketEntry {
     name: String,
     url: String,
+}
+
+#[derive(Debug, Clone)]
+struct SkillMatch {
+    name: String,
+    url: String,
+    market_name: String,
 }
 
 fn parse_github_url(url: &str) -> Result<GitHubRepo> {
@@ -315,6 +323,73 @@ fn get_market_repositories() -> Result<Vec<(String, String, String, String)>> {
     Ok(repositories)
 }
 
+fn find_skills_by_name(skill_name: &str) -> Result<Vec<SkillMatch>> {
+    let repositories = get_market_repositories()?;
+
+    if repositories.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("skills-cli")
+        .build()?;
+
+    let skill_name_lower = skill_name.to_lowercase();
+    let mut matches = Vec::new();
+
+    for (repo, path, base_url, market_name) in repositories {
+        let api_url = format!("https://api.github.com/repos/{}/contents/{}", repo, path);
+
+        let response = match client.get(&api_url).send() {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+
+        if !response.status().is_success() {
+            continue;
+        }
+
+        let contents: Vec<GitHubContent> = match response.json() {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        for item in contents {
+            if item.item_type == "dir" && item.name.to_lowercase() == skill_name_lower {
+                matches.push(SkillMatch {
+                    name: item.name.clone(),
+                    url: format!("{}/{}", base_url, item.path),
+                    market_name: market_name.clone(),
+                });
+            }
+        }
+    }
+
+    Ok(matches)
+}
+
+fn select_skill(matches: &[SkillMatch]) -> Result<&SkillMatch> {
+    println!("Multiple skills found. Please select one:");
+    for (i, skill) in matches.iter().enumerate() {
+        println!("  {}. {} ({})", i + 1, skill.name, skill.market_name);
+    }
+
+    print!("\nEnter your choice (1-{}): ", matches.len());
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    let choice: usize = input.trim().parse()
+        .context("Invalid input, please enter a number")?;
+
+    if choice < 1 || choice > matches.len() {
+        return Err(anyhow!("Invalid choice, must be between 1 and {}", matches.len()));
+    }
+
+    Ok(&matches[choice - 1])
+}
+
 fn search_skills(query: &str) -> Result<()> {
     let repositories = get_market_repositories()?;
 
@@ -372,13 +447,39 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Install { target, path, github } => {
-            let repo = parse_github_url(&path)
-                .context("Failed to parse GitHub URL")?;
+        Commands::Install { skill_or_url, target, global } => {
+            let (repo, skill_name) = if skill_or_url.starts_with("http") {
+                // URL provided - use traditional install
+                let repo = parse_github_url(&skill_or_url)
+                    .context("Failed to parse GitHub URL")?;
+                let skill_name = extract_skill_name(&repo.path)?;
+                (repo, skill_name)
+            } else {
+                // Skill name provided - search in markets
+                println!("Searching for skill '{}' in markets...\n", skill_or_url);
+                let matches = find_skills_by_name(&skill_or_url)?;
 
-            let skill_name = extract_skill_name(&repo.path)?;
-            let target_dir = get_target_directory(target, github)?;
+                if matches.is_empty() {
+                    return Err(anyhow!(
+                        "No available skill '{}' in the market. Please add the market first using 'skills market add <url>'",
+                        skill_or_url
+                    ));
+                }
 
+                let selected = if matches.len() == 1 {
+                    println!("Found skill: {} ({})", matches[0].name, matches[0].market_name);
+                    &matches[0]
+                } else {
+                    select_skill(&matches)?
+                };
+
+                println!("Installing {} from {}...\n", selected.name, selected.market_name);
+                let repo = parse_github_url(&selected.url)
+                    .context("Failed to parse skill URL")?;
+                (repo, selected.name.clone())
+            };
+
+            let target_dir = get_target_directory(target, global)?;
             download_and_extract_github_folder(&repo, &target_dir, &skill_name)?;
         }
         Commands::Search { query } => {
