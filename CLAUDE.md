@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-skillscli is a Rust-based command-line interface application built using:
+skills is a Rust-based command-line interface application built using:
 - **clap** (v4.5) for command-line argument parsing with derive macros
 - **anyhow** for ergonomic error handling
 - **tokio** for async runtime support
