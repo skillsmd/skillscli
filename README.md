@@ -2,8 +2,8 @@
 
 A command-line tool for managing and installing Claude skills from various marketplaces.
 
-[![CI](https://github.com/YOUR_USERNAME/skillscli/workflows/CI/badge.svg)](https://github.com/YOUR_USERNAME/skillscli/actions)
-[![Release](https://github.com/YOUR_USERNAME/skillscli/workflows/Release/badge.svg)](https://github.com/YOUR_USERNAME/skillscli/releases)
+[![CI](https://github.com/skillsmd/skillscli/workflows/CI/badge.svg)](https://github.com/skillsmd/skillscli/actions)
+[![Release](https://github.com/skillsmd/skillscli/workflows/Release/badge.svg)](https://github.com/skillsmd/skillscli/releases)
 
 ## Features
 
@@ -15,15 +15,34 @@ A command-line tool for managing and installing Claude skills from various marke
 
 ## Installation
 
+### Homebrew (macOS/Linux) - Recommended
+
+```bash
+# Add the tap (once)
+brew tap skillsmd/skillscli
+
+# Install
+brew install skills
+
+# Verify
+skills --version
+```
+
+Or install directly from the formula:
+
+```bash
+brew install https://raw.githubusercontent.com/skillsmd/skillscli/main/Formula/skills.rb
+```
+
 ### Pre-built Binaries
 
-Download the latest release for your platform from the [releases page](https://github.com/YOUR_USERNAME/skillscli/releases).
+Download the latest release for your platform from the [releases page](https://github.com/skillsmd/skillscli/releases).
 
 #### Linux / macOS
 
 ```bash
 # Download and extract (replace VERSION and PLATFORM)
-curl -L https://github.com/YOUR_USERNAME/skillscli/releases/download/vVERSION/skills-PLATFORM.tar.gz | tar xz
+curl -L https://github.com/skillsmd/skillscli/releases/download/vVERSION/skills-PLATFORM.tar.gz | tar xz
 
 # Move to a directory in your PATH
 sudo mv skills /usr/local/bin/
@@ -39,11 +58,13 @@ Download `skills-windows-x86_64.exe.zip` from the releases page, extract it, and
 ### Build from Source
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/skillscli.git
+git clone https://github.com/skillsmd/skillscli.git
 cd skillscli
 cargo build --release
 sudo cp target/release/skills /usr/local/bin/
 ```
+
+For detailed installation instructions including shell completions and troubleshooting, see [INSTALLATION.md](INSTALLATION.md).
 
 ## Quick Start
 
