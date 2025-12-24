@@ -19,6 +19,7 @@ pub enum TargetType {
     Codex,
     Copilot,
     Claude,
+    Cursor,
 }
 
 impl Target for TargetType {
@@ -27,6 +28,7 @@ impl Target for TargetType {
             TargetType::Codex => "codex",
             TargetType::Copilot => "copilot",
             TargetType::Claude => "claude",
+            TargetType::Cursor => "cursor",
         }
     }
 }

@@ -127,7 +127,7 @@ skills
 
 ### Options
 
-- `-t, --type <TYPE>`: Target type (codex, copilot) - **required**
+- `-t, --type <TYPE>`: Target type (codex, copilot, claude, cursor) - **required**
 - `-g, --global`: Install globally to `~/.{type}/skills/` instead of `./.{type}/skills/`
 
 ### Examples
@@ -174,7 +174,9 @@ The default Anthropic skills marketplace (`anthropics/skills`) is always include
 | Target | Global (`-g`) | Local (default) |
 |--------|---------------|-----------------|
 | Codex | `~/.codex/skills/` | `./.codex/skills/` |
-| Copilot | `~/.copilot/skills/` | `./.copilot/skills/` |
+| Copilot | `~/.github/skills/` | `./.github/skills/` |
+| Claude | `~/.claude/skills/` | `./.claude/skills/` |
+| Cursor | `~/.cursor/skills/` | `./.cursor/skills/` |
 
 ## Development
 
